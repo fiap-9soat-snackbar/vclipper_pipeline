@@ -1,0 +1,516 @@
+name: VClipperMultiStage Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  setup-bucket:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Configure S3 Bucket
+        continue-on-error: true
+        env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+            AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+            BUCKET_S3: ${{ secrets.BUCKET_S3 }}
+        run: |
+          aws s3api create-bucket --bucket ${{ secrets.BUCKET_S3 }} --region us-east-1
+
+  install-helm-chart-repo:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    needs: setup-bucket
+    if: always()
+
+    steps:
+      - name: Checkout Kubernetes Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'vclipper_infra/helm-chart'
+          token: ${{ secrets.GH_TOKEN}}          
+          
+      - name: Init Helm
+        env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+            AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+            BUCKET_S3: ${{ secrets.BUCKET_S3 }}
+        run: |
+          helm plugin install https://github.com/hypnoglow/helm-s3.git
+          helm s3 init s3://${{ secrets.BUCKET_S3 }} --ignore-if-exists
+          helm repo add vclipper-charts s3://${{ secrets.BUCKET_S3 }}
+          helm package helm-chart/vclipper-app/
+          helm s3 push vclipper-app-1.0.0.tgz vclipper-charts --force
+          
+  global-setup:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    needs: install-helm-chart-repo
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Checkout Kubernetes Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN}}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.0.0
+
+      - name: Init Global Setup
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3}}"
+        working-directory: global
+
+      - name: Plan Global Setup
+        run: terraform plan
+        working-directory: global
+
+      - name: Apply Global Setup
+        if: ${{ success() }}
+        run: terraform apply -auto-approve
+        working-directory: global
+
+  vpc-setup:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    needs: global-setup
+
+    steps:   
+      - name: Checkout Kubernetes Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN}}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.0.0
+  
+      - name: Init VPC Setup
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3}}"
+        working-directory: services/network/vpc
+
+      - name: Plan VPC Setup
+        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        working-directory: services/network/vpc
+
+      - name: Apply VPC Setup
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+        working-directory: services/network/vpc 
+
+  securitygroup-setup:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    needs: vpc-setup
+    
+    steps:   
+      - name: Checkout Kubernetes Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN}}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.0.0
+  
+      - name: Init Security Group Setup
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3}}"
+        working-directory: services/compute/securitygroup
+
+      - name: Plan Security Group Setup
+        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        working-directory: services/compute/securitygroup
+
+      - name: Apply Security Group Setup
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+        working-directory: services/compute/securitygroup
+        
+  eks-setup:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    needs: securitygroup-setup
+
+    steps:   
+      - name: Checkout Kubernetes Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN}}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.0.0
+  
+      - name: Init EKS Setup
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3}}"
+        working-directory: services/compute/eks/vclipper-cluster
+
+      - name: Plan EKS Setup
+        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        working-directory: services/compute/eks/vclipper-cluster
+
+      - name: Apply EKS Setup
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+        working-directory: services/compute/eks/vclipper-cluster
+
+
+  database-rds-setup:
+    runs-on: ubuntu-latest
+    needs: securitygroup-setup
+    environment:
+      name: ${{ github.ref_name }}
+    outputs:
+      rds-conn: ${{ steps.rds.outputs.connection_string}}
+    
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    steps:
+      - name: Checkout DB Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN}}
+              
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.3.6
+          terraform_wrapper: false
+        
+      - name: Create DB RDS variables.auto.tfvars
+        run: |
+            cat <<EOF > variables.auto.tfvars
+            db_password="${{ secrets.RDS_PASSWORD }}"
+            EOF
+
+      - name: Init RDS Dababase Setup
+        working-directory: services/database/rds
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3 }}"
+ 
+      - name: Plan RDS Dababase Setup
+        working-directory: services/database/rds
+        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+    
+      - name: Apply RDS Dababase Setup
+        working-directory: services/database/rds
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+
+      - name: Get RDS Connection String
+        id: rds
+        run: |
+          raw_conn=$(terraform output -raw rds_endpoint)
+          host_only=${raw_conn%%:*}
+          echo "connection_string=$host_only" >> $GITHUB_OUTPUT
+
+  lambda_pipeline:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    #needs: deploy
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Checkout Lambda Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+            terraform_version: 1.3.6
+
+      - name: Create DB variables.auto.tfvars
+        run: |
+            cat <<EOF > variables.auto.tfvars
+            jwt_secret="${{ secrets.JWT_SECRET }}"
+            EOF
+
+      - name: Init Lambda Setup
+        working-directory: services/lambda
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3 }}"
+     
+      - name: Plan Lambda Setup
+        working-directory: services/lambda
+        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        
+      - name: Apply Lambda Setup
+        working-directory: services/lambda
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+
+  queue-setup:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    needs: securitygroup-setup
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Checkout Lambda Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+            terraform_version: 1.3.6
+
+      - name: Init SQS Setup
+        working-directory: services/queue
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3 }}"
+     
+      - name: Plan SQS Setup
+        working-directory: services/queue
+        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        
+      - name: Apply SQS Setup
+        working-directory: services/queue
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+  
+  api_pipeline:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    #needs: [deploy,lambda_pipeline]
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Checkout API Gateway Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+            terraform_version: 1.3.6
+      
+      - name: Buscar ELB com tag e salvar DNS em env
+        run: |
+              for elb in $(aws elb describe-load-balancers --query 'LoadBalancerDescriptions[].LoadBalancerName' --output text); do
+                tag_value=$(aws elb describe-tags --load-balancer-names "$elb" \
+                  --query "TagDescriptions[0].Tags[?Key=='service'].Value" --output text)
+          
+                if [ "$tag_value" == "snackbar-management-prod" ]; then
+                  dns_name=$(aws elb describe-load-balancers --load-balancer-names "$elb" \
+                    --query 'LoadBalancerDescriptions[0].DNSName' --output text)
+          
+                  echo "Encontrado ELB: $elb"
+                  echo "DNS Snackbar Management: $dns_name"
+                  echo "DNS_NAME=$dns_name" >> $GITHUB_ENV
+                  break
+                fi
+              done
+          
+      - name: Create API GATEWAY variables.auto.tfvars
+        run: |
+              echo 'alb_dns_name="${{ env.DNS_NAME }}"' > variables.auto.tfvars
+          
+
+      - name: Init API Gateway Setup
+        working-directory: services/api-gateway
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3 }}"
+      
+      - name: Plan API Gateway Setup
+        working-directory: services/api-gateway
+        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        
+      - name: Apply API Gateway Setup
+        working-directory: services/api-gateway
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve  
+
+
+  database-mongodb-setup:
+    runs-on: ubuntu-latest
+    needs: securitygroup-setup
+    outputs:
+      mongo-conn: ${{ steps.mongo.outputs.connection_string }}
+    environment:
+      name: ${{ github.ref_name }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    steps:
+      - name: Checkout DB Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN}}
+              
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.3.6
+          terraform_wrapper: false
+
+      - name: Install MongoDB CLI
+        run: |
+              wget -qO- https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc
+              echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+              sudo apt-get update
+              sudo apt-get install -y mongodb-mongosh
+
+      - name: Get NAT Gateway Public IP
+        id: get_nat_ip
+        run: |
+          NAT_IP=$(aws ec2 describe-nat-gateways --query "NatGateways[0].NatGatewayAddresses[0].PublicIp" --output text)
+          echo "NAT_IP=$NAT_IP" >> $GITHUB_ENV
+        
+      - name: Use NAT Gateway IP
+        run: |
+          echo "O IP público do NAT Gateway é: ${{ env.NAT_IP }}"
+
+      - name: Create DB variables.auto.tfvars
+        run: |
+            cat <<EOF > variables.auto.tfvars
+            org_id="${{ secrets.ORG_ID }}"
+            aws_nat_gateway="${{ env.NAT_IP }}"
+            mongodb_cluster_name="${{ vars.MONGO_HOST }}"
+            mongodbatlas_org_public_key="${{ secrets.MONGODBATLAS_ORG_PUBLIC_KEY }}"
+            mongodbatlas_org_private_key="${{ secrets.MONGODBATLAS_ORG_PRIVATE_KEY }}"
+            mongodbatlas_username="${{ secrets.MONGODBATLAS_USERNAME }}"
+            mongodbatlas_password="${{ secrets.MONGODBATLAS_PASSWORD }}"
+            MONGODB_USER="${{ secrets.MONGODB_USER }}"
+            MONGODB_PASSWORD="${{ secrets.MONGODB_PASSWORD }}"
+            EOF
+
+      - name: Init Dababase Setup
+        working-directory: services/database/mongodb
+        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3 }}"
+ 
+      - name: Plan Dababase Setup
+        working-directory: services/database/mongodb
+        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+    
+      - name: Apply Dababase Setup
+        working-directory: services/database/mongodb
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+
+      - name: Get Mongo Connection String
+        working-directory: services/database/mongodb
+        id: mongo
+        run: |
+          raw_conn=$(terraform output -raw connection_string)
+          host_only=${raw_conn#*://}
+          echo "connection_string=$host_only" >> $GITHUB_OUTPUT
+
+
+  app_ready:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    #needs: api_pipeline
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Endereço das Apps
+        run: |
+          declare -A services=(
+            [DNS_vclipper_fe]="vclipper_fe"
+            [DNS_vclipper_processing]="vclipper_processing"
+            [DNS_vclipper_user]="vclipper_user"
+            [DNS_vclipping]="vclipper_vclipping"
+          )
+      
+          for elb in $(aws elb describe-load-balancers --query 'LoadBalancerDescriptions[].LoadBalancerName' --output text); do
+            tags_json=$(aws elb describe-tags --load-balancer-names "$elb" --output json)
+      
+            for env_var in "${!services[@]}"; do
+              service_name="${services[$env_var]}"
+      
+              tag_value=$(echo "$tags_json" | jq -r \
+                ".TagDescriptions[0].Tags[] | select(.Key == \"service\") | .Value")
+      
+              if [ "$tag_value" == "$service_name" ]; then
+                dns_name=$(aws elb describe-load-balancers --load-balancer-names "$elb" \
+                  --query 'LoadBalancerDescriptions[0].DNSName' --output text)
+      
+                echo "Encontrado ELB para $service_name:"
+                echo "  Nome: $elb"
+                echo "  DNS : $dns_name"
+              fi
+            done
+          done
+    
+      - name: Get API GATEWAY ENDPOINT Name
+        id: get_api_gateway_endpoint
+        run: |
+          API_GATEWAY_ENDPOINT=$(aws apigatewayv2 get-apis --query 'Items[?Name==`vclipper-processing`].ApiEndpoint' --output text)
+          echo "O endereço do API Gateway Endpoint é: $API_GATEWAY_ENDPOINT" 
+
+
+
