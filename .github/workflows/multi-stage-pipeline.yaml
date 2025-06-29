@@ -274,6 +274,7 @@ jobs:
             terraform_version: 1.3.6
 
       - name: Create DB variables.auto.tfvars
+        working-directory: services/lambda
         run: |
             cat <<EOF > variables.auto.tfvars
             jwt_secret="${{ secrets.JWT_SECRET }}"
