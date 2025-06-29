@@ -25,18 +25,17 @@ jobs:
           aws s3api create-bucket --bucket ${{ vars.BUCKET_S3 }} --region us-east-1
 
   install-helm-chart-repo:
-    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
     needs: setup-bucket
-    #if: always()
+    if: always()
 
     steps:
       - name: Checkout Kubernetes Repo
         uses: actions/checkout@v3
         with:
-          repository: 'vclipper_infra/helm-chart'
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
           token: ${{ secrets.GH_TOKEN}}          
           
       - name: Init Helm
