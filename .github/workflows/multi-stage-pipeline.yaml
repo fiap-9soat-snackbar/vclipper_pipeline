@@ -89,7 +89,6 @@ jobs:
         working-directory: global
 
   vpc-setup:
-    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
