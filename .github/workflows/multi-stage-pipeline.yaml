@@ -280,15 +280,15 @@ jobs:
             EOF
 
       - name: Init Lambda Setup
-        working-directory: services/serverless/lambda
+        working-directory: services/lambda
         run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
      
       - name: Plan Lambda Setup
-        working-directory: services/serverless/lambda
+        working-directory: services/lambda
         run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         
       - name: Apply Lambda Setup
-        working-directory: services/serverless/lambda
+        working-directory: services/lambda
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
