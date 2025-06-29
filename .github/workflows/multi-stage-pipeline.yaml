@@ -2,7 +2,6 @@ name: VClipperMultiStage Pipeline
 
 on:
   workflow_dispatch:
-
 jobs:
 
   setup-bucket:
@@ -21,16 +20,17 @@ jobs:
             AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
             AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-            BUCKET_S3: ${{ secrets.BUCKET_S3 }}
+            BUCKET_S3: ${{ vars.BUCKET_S3 }}
         run: |
-          aws s3api create-bucket --bucket ${{ secrets.BUCKET_S3 }} --region us-east-1
+          aws s3api create-bucket --bucket ${{ vars.BUCKET_S3 }} --region us-east-1
 
   install-helm-chart-repo:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
     needs: setup-bucket
-    if: always()
+    #if: always()
 
     steps:
       - name: Checkout Kubernetes Repo
@@ -45,15 +45,16 @@ jobs:
             AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
             AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-            BUCKET_S3: ${{ secrets.BUCKET_S3 }}
+            BUCKET_S3: ${{ vars.BUCKET_S3 }}
         run: |
           helm plugin install https://github.com/hypnoglow/helm-s3.git
-          helm s3 init s3://${{ secrets.BUCKET_S3 }} --ignore-if-exists
-          helm repo add vclipper-charts s3://${{ secrets.BUCKET_S3 }}
+          helm s3 init s3://${{ vars.BUCKET_S3 }} --ignore-if-exists
+          helm repo add vclipper-charts s3://${{ vars.BUCKET_S3 }}
           helm package helm-chart/vclipper-app/
           helm s3 push vclipper-app-1.0.0.tgz vclipper-charts --force
           
   global-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -90,6 +91,7 @@ jobs:
         working-directory: global
 
   vpc-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -126,6 +128,7 @@ jobs:
         working-directory: services/network/vpc 
 
   securitygroup-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -162,6 +165,7 @@ jobs:
         working-directory: services/compute/securitygroup
         
   eks-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -199,6 +203,7 @@ jobs:
 
 
   database-rds-setup:
+    if: false
     runs-on: ubuntu-latest
     needs: securitygroup-setup
     environment:
@@ -251,6 +256,7 @@ jobs:
           echo "connection_string=$host_only" >> $GITHUB_OUTPUT
 
   lambda_pipeline:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -293,6 +299,7 @@ jobs:
         run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
 
   queue-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -329,6 +336,7 @@ jobs:
         run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
   
   api_pipeline:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -388,6 +396,7 @@ jobs:
 
 
   database-mongodb-setup:
+    if: false
     runs-on: ubuntu-latest
     needs: securitygroup-setup
     outputs:
@@ -466,6 +475,7 @@ jobs:
 
 
   app_ready:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
