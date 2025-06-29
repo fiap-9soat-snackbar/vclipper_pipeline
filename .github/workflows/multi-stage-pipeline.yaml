@@ -53,7 +53,6 @@ jobs:
           helm s3 push vclipper-app-1.0.0.tgz vclipper-charts --force
           
   global-setup:
-    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -77,7 +76,7 @@ jobs:
           terraform_version: 1.0.0
 
       - name: Init Global Setup
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3}}"
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3}}"
         working-directory: global
 
       - name: Plan Global Setup
@@ -114,16 +113,16 @@ jobs:
           terraform_version: 1.0.0
   
       - name: Init VPC Setup
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3}}"
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3}}"
         working-directory: services/network/vpc
 
       - name: Plan VPC Setup
-        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         working-directory: services/network/vpc
 
       - name: Apply VPC Setup
         if: ${{ success() }}
-        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
         working-directory: services/network/vpc 
 
   securitygroup-setup:
@@ -151,16 +150,16 @@ jobs:
           terraform_version: 1.0.0
   
       - name: Init Security Group Setup
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3}}"
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3}}"
         working-directory: services/compute/securitygroup
 
       - name: Plan Security Group Setup
-        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         working-directory: services/compute/securitygroup
 
       - name: Apply Security Group Setup
         if: ${{ success() }}
-        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
         working-directory: services/compute/securitygroup
         
   eks-setup:
@@ -188,16 +187,16 @@ jobs:
           terraform_version: 1.0.0
   
       - name: Init EKS Setup
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3}}"
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3}}"
         working-directory: services/compute/eks/vclipper
 
       - name: Plan EKS Setup
-        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         working-directory: services/compute/eks/vclipper
 
       - name: Apply EKS Setup
         if: ${{ success() }}
-        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
         working-directory: services/compute/eks/vclipper
 
 
@@ -236,16 +235,16 @@ jobs:
 
       - name: Init RDS Dababase Setup
         working-directory: services/database/rds
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
  
       - name: Plan RDS Dababase Setup
         working-directory: services/database/rds
-        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
     
       - name: Apply RDS Dababase Setup
         working-directory: services/database/rds
         if: ${{ success() }}
-        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
       - name: Get RDS Connection String
         id: rds
@@ -286,16 +285,16 @@ jobs:
 
       - name: Init Lambda Setup
         working-directory: services/lambda
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
      
       - name: Plan Lambda Setup
         working-directory: services/lambda
-        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         
       - name: Apply Lambda Setup
         working-directory: services/lambda
         if: ${{ success() }}
-        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
   queue-setup:
     if: false
@@ -323,16 +322,16 @@ jobs:
 
       - name: Init SQS Setup
         working-directory: services/queue
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
      
       - name: Plan SQS Setup
         working-directory: services/queue
-        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         
       - name: Apply SQS Setup
         working-directory: services/queue
         if: ${{ success() }}
-        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
   
   api_pipeline:
     if: false
@@ -382,16 +381,16 @@ jobs:
 
       - name: Init API Gateway Setup
         working-directory: services/api-gateway
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
       
       - name: Plan API Gateway Setup
         working-directory: services/api-gateway
-        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         
       - name: Apply API Gateway Setup
         working-directory: services/api-gateway
         if: ${{ success() }}
-        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve  
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve  
 
 
   database-mongodb-setup:
@@ -453,16 +452,16 @@ jobs:
 
       - name: Init Dababase Setup
         working-directory: services/database/mongodb
-        run: terraform init -backend-config="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
  
       - name: Plan Dababase Setup
         working-directory: services/database/mongodb
-        run: terraform plan -var="bucket=${{ secrets.BUCKET_S3 }}"
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
     
       - name: Apply Dababase Setup
         working-directory: services/database/mongodb
         if: ${{ success() }}
-        run: terraform apply -var="bucket=${{ secrets.BUCKET_S3 }}" -auto-approve
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
       - name: Get Mongo Connection String
         working-directory: services/database/mongodb
