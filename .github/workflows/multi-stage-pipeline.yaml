@@ -225,6 +225,7 @@ jobs:
           terraform_wrapper: false
         
       - name: Create DB RDS variables.auto.tfvars
+        working-directory: services/database/rds
         run: |
             cat <<EOF > variables.auto.tfvars
             db_password="${{ secrets.RDS_PASSWORD }}"
