@@ -199,7 +199,6 @@ jobs:
 
 
   database-rds-setup:
-    if: false
     runs-on: ubuntu-latest
     needs: securitygroup-setup
     environment:
@@ -252,7 +251,6 @@ jobs:
           echo "connection_string=$host_only" >> $GITHUB_OUTPUT
 
   lambda_pipeline:
-    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -282,15 +280,15 @@ jobs:
             EOF
 
       - name: Init Lambda Setup
-        working-directory: services/lambda
+        working-directory: services/serverless/lambda
         run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
      
       - name: Plan Lambda Setup
-        working-directory: services/lambda
+        working-directory: services/serverless/lambda
         run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         
       - name: Apply Lambda Setup
-        working-directory: services/lambda
+        working-directory: services/serverless/lambda
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
