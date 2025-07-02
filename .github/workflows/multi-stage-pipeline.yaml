@@ -254,6 +254,7 @@ jobs:
 
   lambda_pipeline:
     runs-on: ubuntu-latest
+    if: false
     environment:
       name: ${{ github.ref_name }}
     #needs: deploy
@@ -319,15 +320,87 @@ jobs:
             terraform_version: 1.3.6
 
       - name: Init SQS Setup
-        working-directory: services/queue
+        working-directory: services/sqs
         run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
      
       - name: Plan SQS Setup
-        working-directory: services/queue
+        working-directory: services/sqs
         run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         
       - name: Apply SQS Setup
-        working-directory: services/queue
+        working-directory: services/sqs
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
+
+  frontend-hosting-setup:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Checkout Lambda Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+            terraform_version: 1.3.6
+
+      - name: Init SQS Setup
+        working-directory: services/frontend-hosting
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
+     
+      - name: Plan SQS Setup
+        working-directory: services/frontend-hosting
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
+        
+      - name: Apply SQS Setup
+        working-directory: services/frontend-hosting
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
+
+
+  video-storage-setup:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    needs: frontend-hosting-setup
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Checkout Lambda Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+            terraform_version: 1.3.6
+
+      - name: Init SQS Setup
+        working-directory: services/video-storage
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
+     
+      - name: Plan SQS Setup
+        working-directory: services/video-storage
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
+        
+      - name: Apply SQS Setup
+        working-directory: services/video-storage
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
   
