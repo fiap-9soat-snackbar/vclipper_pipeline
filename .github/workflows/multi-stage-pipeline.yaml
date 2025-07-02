@@ -245,6 +245,7 @@ jobs:
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
       - name: Get RDS Connection String
+        working-directory: services/rds
         id: rds
         run: |
           raw_conn=$(terraform output -raw rds_endpoint)
@@ -295,7 +296,6 @@ jobs:
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
   queue-setup:
-    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
