@@ -225,22 +225,22 @@ jobs:
           terraform_wrapper: false
         
       - name: Create DB RDS variables.auto.tfvars
-        working-directory: services/database/rds
+        working-directory: services/rds
         run: |
             cat <<EOF > variables.auto.tfvars
             db_password="${{ secrets.RDS_PASSWORD }}"
             EOF
 
       - name: Init RDS Dababase Setup
-        working-directory: services/database/rds
+        working-directory: services/rds
         run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
  
       - name: Plan RDS Dababase Setup
-        working-directory: services/database/rds
+        working-directory: services/rds
         run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
     
       - name: Apply RDS Dababase Setup
-        working-directory: services/database/rds
+        working-directory: services/rds
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
