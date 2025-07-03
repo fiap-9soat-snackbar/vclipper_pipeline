@@ -252,12 +252,91 @@ jobs:
           host_only=${raw_conn%%:*}
           echo "connection_string=$host_only" >> $GITHUB_OUTPUT
 
-  lambda_pipeline:
+
+  database-mongodb-setup:
     runs-on: ubuntu-latest
-    if: false
+    needs: securitygroup-setup
+    outputs:
+      mongo-conn: ${{ steps.mongo.outputs.connection_string }}
     environment:
       name: ${{ github.ref_name }}
-    #needs: deploy
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    steps:
+      - name: Checkout DB Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN}}
+              
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.3.6
+          terraform_wrapper: false
+
+      - name: Install MongoDB CLI
+        run: |
+              wget -qO- https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc
+              echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+              sudo apt-get update
+              sudo apt-get install -y mongodb-mongosh
+
+      - name: Get NAT Gateway Public IP
+        id: get_nat_ip
+        run: |
+          NAT_IP=$(aws ec2 describe-nat-gateways --query "NatGateways[0].NatGatewayAddresses[0].PublicIp" --output text)
+          echo "NAT_IP=$NAT_IP" >> $GITHUB_ENV
+        
+      - name: Use NAT Gateway IP
+        run: |
+          echo "O IP público do NAT Gateway é: ${{ env.NAT_IP }}"
+
+      - name: Create DB variables.auto.tfvars
+        working-directory: services/mongodb
+        run: |
+            cat <<EOF > variables.auto.tfvars
+            org_id="${{ secrets.ORG_ID }}"
+            aws_nat_gateway="${{ env.NAT_IP }}"
+            mongodb_cluster_name="${{ vars.MONGO_HOST }}"
+            mongodbatlas_org_public_key="${{ secrets.MONGODBATLAS_ORG_PUBLIC_KEY }}"
+            mongodbatlas_org_private_key="${{ secrets.MONGODBATLAS_ORG_PRIVATE_KEY }}"
+            mongodbatlas_username="${{ secrets.MONGODBATLAS_USERNAME }}"
+            mongodbatlas_password="${{ secrets.MONGODBATLAS_PASSWORD }}"
+            MONGODB_USER="${{ secrets.MONGODB_USER }}"
+            MONGODB_PASSWORD="${{ secrets.MONGODB_PASSWORD }}"
+            EOF
+
+      - name: Init Mongo Dababase Setup
+        working-directory: services/mongodb
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
+ 
+      - name: Plan Mongo Dababase Setup
+        working-directory: services/mongodb
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
+    
+      - name: Apply Mongo Dababase Setup
+        working-directory: services/mongodb
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
+
+      - name: Get Mongo Connection String
+        working-directory: services/mongodb
+        id: mongo
+        run: |
+          raw_conn=$(terraform output -raw connection_string)
+          host_only=${raw_conn#*://}
+          echo "connection_string=$host_only" >> $GITHUB_OUTPUT          
+
+
+  lambda_setup:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    needs: securitygroup-setup
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -332,10 +411,11 @@ jobs:
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
-  frontend-hosting-setup:
+  sns-notification-setup:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
+    needs: queue-setup
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -354,15 +434,51 @@ jobs:
         with:
             terraform_version: 1.3.6
 
-      - name: Init SQS Setup
+      - name: Init SNS Notification Setup
+        working-directory: services/sns-notifications
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
+     
+      - name: Plan SNS Notification  Setup
+        working-directory: services/sns-notifications
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
+        
+      - name: Apply SNS Notification  Setup
+        working-directory: services/sns-notifications
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
+
+  frontend-hosting-setup:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    needs: securitygroup-setup
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Checkout Lambda Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+            terraform_version: 1.3.6
+
+      - name: Init FE Hosting Setup
         working-directory: services/frontend-hosting
         run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
      
-      - name: Plan SQS Setup
+      - name: Plan FE Hosting Setup
         working-directory: services/frontend-hosting
         run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         
-      - name: Apply SQS Setup
+      - name: Apply FE Hosting Setup
         working-directory: services/frontend-hosting
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
@@ -391,25 +507,61 @@ jobs:
         with:
             terraform_version: 1.3.6
 
-      - name: Init SQS Setup
+      - name: Init Video Storage Setup
         working-directory: services/video-storage
         run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
      
-      - name: Plan SQS Setup
+      - name: Plan Video Storage Setup
         working-directory: services/video-storage
         run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
         
-      - name: Apply SQS Setup
+      - name: Apply Video Storage Setup
         working-directory: services/video-storage
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
-  
-  api_pipeline:
-    if: false
+
+  coginito-setup:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    #needs: [deploy,lambda_pipeline]
+    needs: securitygroup-setup
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+    steps:
+      - name: Checkout Lambda Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_infra'
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+            terraform_version: 1.3.6
+
+      - name: Init Cognito Setup
+        working-directory: services/cognito
+        run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
+     
+      - name: Plan Cognito Setup
+        working-directory: services/cognito
+        run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
+        
+      - name: Apply Cognito Setup
+        working-directory: services/cognito
+        if: ${{ success() }}
+        run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve  
+
+  api_gateway_setup:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    needs: lambda_setup
+    #needs: [deploy,lambda_setup]
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -428,26 +580,27 @@ jobs:
         with:
             terraform_version: 1.3.6
       
-      - name: Buscar ELB com tag e salvar DNS em env
-        run: |
-              for elb in $(aws elb describe-load-balancers --query 'LoadBalancerDescriptions[].LoadBalancerName' --output text); do
-                tag_value=$(aws elb describe-tags --load-balancer-names "$elb" \
-                  --query "TagDescriptions[0].Tags[?Key=='service'].Value" --output text)
-          
-                if [ "$tag_value" == "snackbar-management-prod" ]; then
-                  dns_name=$(aws elb describe-load-balancers --load-balancer-names "$elb" \
-                    --query 'LoadBalancerDescriptions[0].DNSName' --output text)
-          
-                  echo "Encontrado ELB: $elb"
-                  echo "DNS Snackbar Management: $dns_name"
-                  echo "DNS_NAME=$dns_name" >> $GITHUB_ENV
-                  break
-                fi
-              done
-          
-      - name: Create API GATEWAY variables.auto.tfvars
-        run: |
-              echo 'alb_dns_name="${{ env.DNS_NAME }}"' > variables.auto.tfvars
+     # - name: Buscar ELB com tag e salvar DNS em env
+     #   run: |
+     #         for elb in $(aws elb describe-load-balancers --query 'LoadBalancerDescriptions[].LoadBalancerName' --output text); do
+     #           tag_value=$(aws elb describe-tags --load-balancer-names "$elb" \
+     #             --query "TagDescriptions[0].Tags[?Key=='service'].Value" --output text)
+     #     
+     #           if [ "$tag_value" == "vclipper-processing-prod" ]; then
+     #             dns_name=$(aws elb describe-load-balancers --load-balancer-names "$elb" \
+     #               --query 'LoadBalancerDescriptions[0].DNSName' --output text)
+     #     
+     #             echo "Encontrado ELB: $elb"
+     #             echo "DNS Snackbar Management: $dns_name"
+     #             echo "DNS_NAME=$dns_name" >> $GITHUB_ENV
+     #             break
+     #           fi
+     #         done
+     #     
+     # - name: Create API GATEWAY variables.auto.tfvars
+     #   working-directory: services/api-gateway
+     #   run: |
+     #         echo 'backend_alb_dns_name="${{ env.DNS_NAME }}"' > variables.auto.tfvars
           
 
       - name: Init API Gateway Setup
@@ -463,86 +616,41 @@ jobs:
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve  
 
-
-  database-mongodb-setup:
-    if: false
+  monitoring-setup:
     runs-on: ubuntu-latest
-    needs: securitygroup-setup
-    outputs:
-      mongo-conn: ${{ steps.mongo.outputs.connection_string }}
     environment:
       name: ${{ github.ref_name }}
+    needs: [sns-notification-setup,queue-setup,video-storage-setup,frontend-hosting-setup,api_gateway_setup,coginito-setup]
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
     steps:
-      - name: Checkout DB Repo
+      - name: Checkout Lambda Repo
         uses: actions/checkout@v3
         with:
           repository: 'fiap-9soat-snackbar/vclipper_infra'
-          token: ${{ secrets.GH_TOKEN}}
-              
+          token: ${{ secrets.GH_TOKEN }}
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.3.6
-          terraform_wrapper: false
+            terraform_version: 1.3.6
 
-      - name: Install MongoDB CLI
-        run: |
-              wget -qO- https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc
-              echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
-              sudo apt-get update
-              sudo apt-get install -y mongodb-mongosh
-
-      - name: Get NAT Gateway Public IP
-        id: get_nat_ip
-        run: |
-          NAT_IP=$(aws ec2 describe-nat-gateways --query "NatGateways[0].NatGatewayAddresses[0].PublicIp" --output text)
-          echo "NAT_IP=$NAT_IP" >> $GITHUB_ENV
-        
-      - name: Use NAT Gateway IP
-        run: |
-          echo "O IP público do NAT Gateway é: ${{ env.NAT_IP }}"
-
-      - name: Create DB variables.auto.tfvars
-        run: |
-            cat <<EOF > variables.auto.tfvars
-            org_id="${{ secrets.ORG_ID }}"
-            aws_nat_gateway="${{ env.NAT_IP }}"
-            mongodb_cluster_name="${{ vars.MONGO_HOST }}"
-            mongodbatlas_org_public_key="${{ secrets.MONGODBATLAS_ORG_PUBLIC_KEY }}"
-            mongodbatlas_org_private_key="${{ secrets.MONGODBATLAS_ORG_PRIVATE_KEY }}"
-            mongodbatlas_username="${{ secrets.MONGODBATLAS_USERNAME }}"
-            mongodbatlas_password="${{ secrets.MONGODBATLAS_PASSWORD }}"
-            MONGODB_USER="${{ secrets.MONGODB_USER }}"
-            MONGODB_PASSWORD="${{ secrets.MONGODB_PASSWORD }}"
-            EOF
-
-      - name: Init Dababase Setup
-        working-directory: services/database/mongodb
+      - name: Init Cloud Watch Monitoring Setup
+        working-directory: services/monitoring
         run: terraform init -backend-config="bucket=${{ vars.BUCKET_S3 }}"
- 
-      - name: Plan Dababase Setup
-        working-directory: services/database/mongodb
+     
+      - name: Plan Cloud Watch Monitoring Setup
+        working-directory: services/monitoring
         run: terraform plan -var="bucket=${{ vars.BUCKET_S3 }}"
-    
-      - name: Apply Dababase Setup
-        working-directory: services/database/mongodb
+        
+      - name: Apply Cloud Watch Monitoring Setup
+        working-directory: services/monitoring
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
-
-      - name: Get Mongo Connection String
-        working-directory: services/database/mongodb
-        id: mongo
-        run: |
-          raw_conn=$(terraform output -raw connection_string)
-          host_only=${raw_conn#*://}
-          echo "connection_string=$host_only" >> $GITHUB_OUTPUT
-
-
   app_ready:
     if: false
     runs-on: ubuntu-latest
