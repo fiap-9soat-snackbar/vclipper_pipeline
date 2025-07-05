@@ -846,6 +846,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
     #needs: [build-and-push]
+    needs: [securitygroup-setup]
     steps:
       - name: Checkout App Repo
         uses: actions/checkout@v3
