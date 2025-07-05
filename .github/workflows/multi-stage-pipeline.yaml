@@ -680,7 +680,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: [eks-setup,database-mongodb-setup, database-rds-setup, queue-setup]
+    needs: [monitoring-setup]
 
     strategy:
       matrix:
@@ -722,7 +722,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: [eks-setup,database-mongodb-setup, database-rds-setup, queue-setup]
+    needs: [monitoring-setup]
 
     strategy:
       matrix:
@@ -841,8 +841,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-    needs: [build-and-push, database-mongodb-setup, database-rds-setup]
-
+    needs: [build-and-push]
     steps:
       - name: Checkout App Repo
         uses: actions/checkout@v3
