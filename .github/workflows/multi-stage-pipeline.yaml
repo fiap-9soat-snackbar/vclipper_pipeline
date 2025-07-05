@@ -418,10 +418,11 @@ jobs:
 
       - name: Get Queue URL
         working-directory: services/sqs
-        id: queue_url
+        id: queue
         run: |
-          raw_conn=$(terraform output -raw queue_url)
-          echo "queue_url" >> $GITHUB_OUTPUT  
+          queue_url=$(terraform output -raw queue_url)
+          echo "queue_url=$queue_url" >> $GITHUB_OUTPUT
+      
 
   sns-notification-setup:
     runs-on: ubuntu-latest
@@ -538,8 +539,9 @@ jobs:
         working-directory: services/video-storage
         id: video-storage
         run: |
-          raw_conn=$(terraform output -raw bucket_name)
-          echo "bucket_name" >> $GITHUB_OUTPUT 
+          bucket_name=$(terraform output -raw bucket_name)
+          echo "bucket_name=$bucket_name" >> $GITHUB_OUTPUT
+
 
   coginito-setup:
     runs-on: ubuntu-latest
