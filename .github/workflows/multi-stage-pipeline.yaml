@@ -774,6 +774,7 @@ jobs:
    #       -Dcoverage.minimum=0.80 \
 
   build-and-push:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -844,7 +845,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-    needs: [build-and-push]
+    #needs: [build-and-push]
     steps:
       - name: Checkout App Repo
         uses: actions/checkout@v3
@@ -870,22 +871,21 @@ jobs:
                 echo "APP_NAMESPACE=homolog" >> $GITHUB_ENV
               fi
   
-      - name: Helm Upgrade/Install vclipping
+      - name: Helm Install S3 Plugin and Add Repo
         run: |
               helm plugin install https://github.com/hypnoglow/helm-s3.git
-              helm repo add vclipper-charts s3://${{ secrets.BUCKET_S3 }}
-    
+              helm repo add vclipper-charts s3://${{ vars.BUCKET_S3 }}
+
+      - name: Install vclipping
+        run: |
               helm upgrade --install vclipping vclipper-charts/vclipping \
                 --namespace ${{ env.APP_NAMESPACE }} \
                 --create-namespace \
                 --set IMAGE.REPOSITORY=171219910203199431032017/vclipping \
-                --set IMAGE.TAG=${{ env.IMAGE_TAG }} \
+                --set IMAGE.TAG=${{ env.IMAGE_TAG }}
 
-      - name: Helm Upgrade/Install vclipper processing
+      - name: Install vclipper processing
         run: |
-              helm plugin install https://github.com/hypnoglow/helm-s3.git
-              helm repo add vclipper-charts s3://${{ secrets.BUCKET_S3 }}
-    
               helm upgrade --install vclipper_processing vclipper-charts/vclipper_processing \
                 --namespace ${{ env.APP_NAMESPACE }} \
                 --create-namespace \
