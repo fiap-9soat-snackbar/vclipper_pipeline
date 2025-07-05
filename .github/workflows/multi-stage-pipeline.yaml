@@ -641,7 +641,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: [sns-notification-setup,queue-setup,video-storage-setup,frontend-hosting-setup,api_gateway_setup,coginito-setup,eks-setup]
+    needs: [sns-notification-setup,queue-setup,video-storage-setup,frontend-hosting-setup,api_gateway_setup,coginito-setup,eks-setup,database-rds-setup,database-mongodb-setup]
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
