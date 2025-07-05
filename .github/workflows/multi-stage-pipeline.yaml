@@ -49,8 +49,12 @@ jobs:
           helm plugin install https://github.com/hypnoglow/helm-s3.git
           helm s3 init s3://${{ vars.BUCKET_S3 }} --ignore-if-exists
           helm repo add vclipper-charts s3://${{ vars.BUCKET_S3 }}
-          helm package helm-chart/vclipper-app/
-          helm s3 push vclipper-app-1.0.0.tgz vclipper-charts --force
+
+          helm package helm-chart/vclipper_processing/
+          helm s3 push vclipper_processing-1.0.0.tgz vclipper-charts --force
+
+          helm package helm-chart/vclipping/
+          helm s3 push vclipping-1.0.0.tgz vclipper-charts --force
           
   global-setup:
     runs-on: ubuntu-latest
@@ -379,6 +383,8 @@ jobs:
     environment:
       name: ${{ github.ref_name }}
     needs: securitygroup-setup
+    outputs:
+      queue_url: ${{ steps.queue.outputs.queue_url }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -409,6 +415,13 @@ jobs:
         working-directory: services/sqs
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
+
+      - name: Get Queue URL
+        working-directory: services/sqs
+        id: queue_url
+        run: |
+          raw_conn=$(terraform output -raw queue_url)
+          echo "queue_url >> $GITHUB_OUTPUT  
 
   sns-notification-setup:
     runs-on: ubuntu-latest
@@ -488,6 +501,8 @@ jobs:
     environment:
       name: ${{ github.ref_name }}
     needs: frontend-hosting-setup
+    outputs:
+      video-storage-bucket-name: ${{ steps.video-storage.outputs.bucket_name }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -518,6 +533,13 @@ jobs:
         working-directory: services/video-storage
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
+
+      - name: Get Video Storage Bucket Name
+        working-directory: services/video-storage
+        id: video-storage
+        run: |
+          raw_conn=$(terraform output -raw bucket_name)
+          echo "bucket_name >> $GITHUB_OUTPUT 
 
   coginito-setup:
     runs-on: ubuntu-latest
@@ -650,6 +672,234 @@ jobs:
         working-directory: services/monitoring
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
+
+
+
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    needs: [eks-setup,database-mongodb-setup, database-rds-setup, queue-setup]
+
+    strategy:
+      matrix:
+        include:
+          - app_name: vclipping
+            repository_full_name: fiap-9soat-snackbar/vclipping
+          - app_name: vclipper_processing
+            repository_full_name: fiap-9soat-snackbar/vclipper_processing
+         # - app_name: vclipper_user
+         #   repository_full_name: fiap-9soat-snackbar/vclipper_user
+         # - app_name: vclipper_fe
+         #   repository_full_name: fiap-9soat-snackbar/vclipper_fe
+
+    steps:
+      - name: Checkout App Repo
+        uses: actions/checkout@v3
+        with:
+          repository:  ${{ matrix.repository_full_name }}
+          token: ${{ secrets.GH_TOKEN}}
+          ref: ${{ github.event.client_payload.branch == 'main' || github.event_name == 'workflow_dispatch' && 'main' || 'homolog' }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+      
+      - name: Run unit tests
+        run: mvn -f pom.xml test --no-transfer-progress
+
+  code-analysis:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    needs: [eks-setup,database-mongodb-setup, database-rds-setup, queue-setup]
+
+    strategy:
+      matrix:
+        include:
+          - app_name: vclipping
+            repository_full_name: fiap-9soat-snackbar/vclipping
+          - app_name: vclipper_processing
+            repository_full_name: fiap-9soat-snackbar/vclipper_processing
+         # - app_name: vclipper_user
+         #   repository_full_name: fiap-9soat-snackbar/vclipper_user
+         # - app_name: vclipper_fe
+         #   repository_full_name: fiap-9soat-snackbar/vclipper_fe
+
+
+    steps:
+    - name: Checkout App Repo
+      uses: actions/checkout@v3
+      with:
+        repository:  ${{ matrix.repository_full_name }}
+        token: ${{ secrets.GH_TOKEN}}
+        ref: ${{ github.event.client_payload.branch == 'main' || github.event_name == 'workflow_dispatch' && 'main' || 'homolog' }}
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    - name: Cache Maven packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-maven-
+
+   # - name: Build, Test and Analyze with SonarCloud
+   #   run: |
+   #     mvn -f pom.xml clean verify \
+   #       org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.1.2184:sonar \
+   #       -Dsonar.projectKey=fiap-9soat-snackbar_${{ matrix.app_name }} \
+   #       -Dsonar.organization=fiap-9soat-snackbar \
+   #       -Dsonar.projectName=${{ matrix.app_name }} \
+   #       -Dsonar.host.url=https://sonarcloud.io \
+   #       -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+   #       -Dcoverage.minimum=0.80 \
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    env:
+      MONGODB_USER: ${{ secrets.MONGODB_USER }}
+      MONGODB_PASSWORD: ${{ secrets.MONGODB_PASSWORD }}
+      DB_HOST: ${{ vars.MONGO_HOST }}
+      APP_DB: ${{ secrets.MONGO_APP_DB }}
+      JWT_EXPIRES: ${{ secrets.JWT_EXPIRES }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+    needs: [unit-tests, code-analysis]
+
+    strategy:
+      matrix:
+        include:
+          - app_name: vclipping
+            repository_full_name: fiap-9soat-snackbar/vclipping
+          - app_name: vclipper_processing
+            repository_full_name: fiap-9soat-snackbar/vclipper_processing
+         # - app_name: vclipper_user
+         #   repository_full_name: fiap-9soat-snackbar/vclipper_user
+         # - app_name: vclipper_fe
+         #   repository_full_name: fiap-9soat-snackbar/vclipper_fe
+
+    steps:
+    - name: Checkout App Repo
+      uses: actions/checkout@v3
+      with:
+        repository:  ${{ matrix.repository_full_name }}
+        token: ${{ secrets.GH_TOKEN}}
+        ref: ${{ github.event.client_payload.branch == 'main' || github.event_name == 'workflow_dispatch' && 'main' || 'homolog' }}
+
+
+    - name: Set Docker image tag based on branch
+      run: |
+          echo "APP_NAME=${{ matrix.app_name }}" >> $GITHUB_ENV
+          if [[ "${{ github.event.client_payload.branch }}" == "main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "IMAGE_TAG=latest" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=homolog" >> $GITHUB_ENV
+          fi
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Build and push Vclipper Docker image
+      run: |
+        set -x
+        cd backend
+        docker buildx build --platform linux/amd64,linux/arm64 \
+           -t ${{ secrets.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ env.IMAGE_TAG }} \
+           --push .
+        
+    - name: Docker logout
+      run: docker logout
+
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+    needs: [build-and-push, database-mongodb-setup, database-rds-setup]
+
+    steps:
+      - name: Checkout App Repo
+        uses: actions/checkout@v3
+        with:
+          repository:  ${{ matrix.repository_full_name }}
+          token: ${{ secrets.GH_TOKEN}}
+          ref: ${{ github.event.client_payload.branch == 'main' || github.event_name == 'workflow_dispatch' && 'main' || 'homolog' }}
+
+      - name: Install Helm
+        run: |
+              curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  
+      - name: Configure kubectl for EKS
+        run: aws eks update-kubeconfig --name vclipper-cluster --region ${{ vars.AWS_DEFAULT_REGION}}
+
+      - name: Set Helm variables
+        run: |
+              if [[ "${{ github.event.client_payload.branch }}" == "main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+                echo "IMAGE_TAG=latest" >> $GITHUB_ENV
+                echo "APP_NAMESPACE=prod" >> $GITHUB_ENV
+              else
+                echo "IMAGE_TAG=homolog" >> $GITHUB_ENV
+                echo "APP_NAMESPACE=homolog" >> $GITHUB_ENV
+              fi
+  
+      - name: Helm Upgrade/Install vclipping
+        run: |
+              helm plugin install https://github.com/hypnoglow/helm-s3.git
+              helm repo add vclipper-charts s3://${{ secrets.BUCKET_S3 }}
+    
+              helm upgrade --install vclipping vclipper-charts/vclipping \
+                --namespace ${{ env.APP_NAMESPACE }} \
+                --create-namespace \
+                --set IMAGE.REPOSITORY=171219910203199431032017/vclipping \
+                --set IMAGE.TAG=${{ env.IMAGE_TAG }} \
+
+      - name: Helm Upgrade/Install vclipper processing
+        run: |
+              helm plugin install https://github.com/hypnoglow/helm-s3.git
+              helm repo add vclipper-charts s3://${{ secrets.BUCKET_S3 }}
+    
+              helm upgrade --install vclipper_processing vclipper-charts/vclipper_processing \
+                --namespace ${{ env.APP_NAMESPACE }} \
+                --create-namespace \
+                --set IMAGE.REPOSITORY=171219910203199431032017/vclipper_processing \
+                --set IMAGE.TAG=${{ env.IMAGE_TAG }} \
+                --set SECRET.MONGODB_USER=${{ secrets.MONGODB_USER }} \
+                --set SECRET.MONGODB_PASSWORD=${{ secrets.MONGODB_PASSWORD }} \
+                --set SECRET.DB_HOST=${{ needs.database-mongodb-setup.outputs.mongo-conn }} \
+                --set SECRET.AWS_S3_BUCKET=${{ needs.video-storage.outputs.bucket_name }} \
+                --set SECRET.AWS_SQS_PROCESSING_QUEUE_URL=${{ needs.queue-setup.outputs.queue_url }}  \
+                --set SECRET.AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}  \
+                --set SECRET.AWS_REGION=${{ vars.AWS_DEFAULT_REGION}}  \
+                --set SECRET.AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}  \
+                --set SECRET.AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}  \
+                --set SECRET.AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}  \
+
   app_ready:
     if: false
     runs-on: ubuntu-latest
