@@ -382,7 +382,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: securitygroup-setup
+    needs: [securitygroup-setup, video-storage-setup]
     outputs:
       queue_url: ${{ steps.queue.outputs.queue_url }}
     env:
@@ -421,7 +421,7 @@ jobs:
         id: queue_url
         run: |
           raw_conn=$(terraform output -raw queue_url)
-          echo "queue_url >> $GITHUB_OUTPUT  
+          echo "queue_url" >> $GITHUB_OUTPUT  
 
   sns-notification-setup:
     runs-on: ubuntu-latest
@@ -539,7 +539,7 @@ jobs:
         id: video-storage
         run: |
           raw_conn=$(terraform output -raw bucket_name)
-          echo "bucket_name >> $GITHUB_OUTPUT 
+          echo "bucket_name" >> $GITHUB_OUTPUT 
 
   coginito-setup:
     runs-on: ubuntu-latest
@@ -581,8 +581,8 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: lambda_setup
-    #needs: [deploy,lambda_setup]
+    needs: [lambda_setup,frontend-hosting-setup]
+    #needs: [deploy-be,lambda_setup]
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -832,7 +832,7 @@ jobs:
     - name: Docker logout
       run: docker logout
 
-  deploy:
+  deploy-be:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
