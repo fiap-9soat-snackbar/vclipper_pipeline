@@ -402,6 +402,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
             terraform_version: 1.3.6
+            terraform_wrapper: false
 
       - name: Init SQS Setup
         working-directory: services/sqs
@@ -521,6 +522,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
             terraform_version: 1.3.6
+            terraform_wrapper: false
 
       - name: Init Video Storage Setup
         working-directory: services/video-storage
