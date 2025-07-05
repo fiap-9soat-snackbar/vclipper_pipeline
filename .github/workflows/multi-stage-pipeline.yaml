@@ -886,7 +886,7 @@ jobs:
 
       - name: Install vclipper processing
         run: |
-              helm upgrade --install vclipper_processing vclipper-charts/vclipper_processing \
+              helm upgrade --install vclipper-processing vclipper-charts/vclipper_processing \
                 --namespace ${{ env.APP_NAMESPACE }} \
                 --create-namespace \
                 --set IMAGE.REPOSITORY=171219910203199431032017/vclipper_processing \
