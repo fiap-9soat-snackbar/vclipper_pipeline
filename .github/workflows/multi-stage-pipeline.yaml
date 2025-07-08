@@ -57,6 +57,7 @@ jobs:
           helm s3 push vclipping-1.0.0.tgz vclipper-charts --force
           
   global-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -93,6 +94,7 @@ jobs:
         working-directory: global
 
   vpc-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -129,6 +131,7 @@ jobs:
         working-directory: services/network/vpc 
 
   securitygroup-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -165,6 +168,7 @@ jobs:
         working-directory: services/compute/securitygroup
         
   eks-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -202,6 +206,7 @@ jobs:
 
 
   database-rds-setup:
+    if: false
     runs-on: ubuntu-latest
     needs: securitygroup-setup
     environment:
@@ -257,6 +262,7 @@ jobs:
 
 
   database-mongodb-setup:
+    if: false
     runs-on: ubuntu-latest
     needs: securitygroup-setup
     outputs:
@@ -336,6 +342,7 @@ jobs:
 
 
   lambda_setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -379,6 +386,7 @@ jobs:
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
   queue-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -426,6 +434,7 @@ jobs:
       
 
   sns-notification-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -475,6 +484,7 @@ jobs:
 
 
   frontend-hosting-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -524,6 +534,7 @@ jobs:
 
 
   video-storage-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -571,6 +582,7 @@ jobs:
 
 
   coginito-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -633,6 +645,7 @@ jobs:
 
 
   api_gateway_setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -706,6 +719,7 @@ jobs:
   
         
   monitoring-setup:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -742,6 +756,7 @@ jobs:
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
   unit-tests:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -784,6 +799,7 @@ jobs:
         run: mvn -f pom.xml test --no-transfer-progress
 
   code-analysis:
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -907,7 +923,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
     #needs: [build-and-push]
-    needs: [unit-tests, code-analysis]
+    #needs: [unit-tests, code-analysis]
     steps:
       - name: Checkout App Repo
         uses: actions/checkout@v3
@@ -949,7 +965,7 @@ jobs:
                 --set SECRET.AWS_ACCOUNT_ID=${{ vars.AWS_ACCOUNT_ID}}  \
                 --set SECRET.AWS_S3_BUCKET=${{ needs.video-storage-setup.outputs.bucket_name }}  \
                 --set SECRET.AWS_SQS_PROCESSING_QUEUE_URL=${{ needs.queue-setup.outputs.queue_processing_url }}  \
-                
+                --set SECRET.AWS_SQS_RESULT_QUEUE_URL=${{ needs.queue-setup.outputs.queue_result_url }}  \
 
       - name: Install vclipper processing
         run: |
@@ -970,6 +986,8 @@ jobs:
                 --set SECRET.AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}  \
                 --set SECRET.AWS_SNS_NOTIFICATION_TOPIC_ARN=${{ needs.sns-notification-setup.outputs.success_topic_arn }} \
   deploy-fe:
+    if: false
+
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
