@@ -774,7 +774,6 @@ jobs:
    #       -Dcoverage.minimum=0.80 \
 
   build-and-push:
-    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -845,8 +844,8 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-    #needs: [build-and-push]
-    needs: [securitygroup-setup]
+    needs: [build-and-push]
+    #needs: [securitygroup-setup]
     steps:
       - name: Checkout App Repo
         uses: actions/checkout@v3
