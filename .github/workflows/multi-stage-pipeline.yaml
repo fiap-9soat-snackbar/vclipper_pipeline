@@ -430,6 +430,9 @@ jobs:
     environment:
       name: ${{ github.ref_name }}
     needs: queue-setup
+    outputs:
+      success_topic_arn: ${{ steps.get-topic-arn.outputs.success_topic_arn }}
+
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -460,6 +463,16 @@ jobs:
         working-directory: services/sns-notifications
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
+
+      - name: Get SNS Success Topic ARN
+        id: get-topic-arn
+        working-directory: services/sns-notifications
+        run: |
+          arn=$(terraform output -raw success_topic_arn)
+          echo "success_topic_arn<<EOF" >> $GITHUB_OUTPUT
+          echo "$arn" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
 
   frontend-hosting-setup:
     runs-on: ubuntu-latest
@@ -933,6 +946,10 @@ jobs:
                 --set IMAGE.REPOSITORY=171219910203199431032017/vclipping \
                 --set IMAGE.TAG=${{ env.IMAGE_TAG }} \
                 --set SECRET.AWS_REGION=${{ vars.AWS_DEFAULT_REGION}}  \
+                --set SECRET.AWS_ACCOUNT_ID=${{ vars.AWS_ACCOUNT_ID}}  \
+                --set SECRET.AWS_S3_BUCKET=${{ needs.video-storage-setup.outputs.bucket_name }}  \
+                --set SECRET.AWS_SQS_PROCESSING_QUEUE_URL=${{ needs.queue-setup.outputs.queue_processing_url }}  \
+                
 
       - name: Install vclipper processing
         run: |
@@ -951,7 +968,7 @@ jobs:
                 --set SECRET.AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}  \
                 --set SECRET.AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}  \
                 --set SECRET.AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}  \
-                --set SECRET.AWS_SNS_NOTIFICATION_TOPIC_ARN= \
+                --set SECRET.AWS_SNS_NOTIFICATION_TOPIC_ARN=${{ needs.sns-notification-setup.outputs.success_topic_arn }} \
   deploy-fe:
     runs-on: ubuntu-latest
     environment:
