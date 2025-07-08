@@ -820,6 +820,7 @@ jobs:
 
   build-and-push:
     runs-on: ubuntu-latest
+    if: false
     environment:
       name: ${{ github.ref_name }}
     env:
@@ -889,8 +890,8 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-    needs: [build-and-push]
-    #needs: [unit-tests, code-analysis]
+    #needs: [build-and-push]
+    needs: [unit-tests, code-analysis]
     steps:
       - name: Checkout App Repo
         uses: actions/checkout@v3
@@ -962,8 +963,8 @@ jobs:
       REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.coginito-setup.outputs.user_pool_id }}
       
 
-    needs: [build-and-push]
-    #needs: [unit-tests, code-analysis]
+    #needs: [build-and-push]
+    needs: [unit-tests, code-analysis]
 
     steps:
       - name: Checkout FE Repo
