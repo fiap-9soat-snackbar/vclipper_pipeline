@@ -923,7 +923,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
     #needs: [build-and-push]
-    #needs: [unit-tests, code-analysis]
+    needs: [install-helm-chart-repo]
     steps:
       - name: Checkout App Repo
         uses: actions/checkout@v3
