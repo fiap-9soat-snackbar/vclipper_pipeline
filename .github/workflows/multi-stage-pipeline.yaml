@@ -687,7 +687,10 @@ jobs:
         id: get-url
         run: |
           api_gateway_endpoint=$(terraform output -raw api_gateway_endpoint)
-          echo "api_gateway_endpoint=$api_gateway_endpoint" >> $GITHUB_OUTPUT
+          echo "api_gateway_endpoint<<EOF" >> $GITHUB_OUTPUT
+          echo "$api_gateway_endpoint" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+  
         
   monitoring-setup:
     runs-on: ubuntu-latest
