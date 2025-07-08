@@ -1,0 +1,69 @@
+name: Deploy Frontend to S3
+
+on:
+    workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    environment:
+        name: ${{ github.ref_name }}
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      REACT_APP_AWS_REGION: ${{ vars.AWS_DEFAULT_REGION}}
+      REACT_APP_S3_BUCKET: teste
+      REACT_APP_API_ENDPOINT: https://teste.com.br
+      REACT_APP_USER_POOL_ID: teste
+      REACT_APP_USER_POOL_CLIENT_ID: teste
+      REACT_APP_USE_MOCK_AUTH: "false"
+      REACT_APP_USE_MOCK_VIDEO: "true"
+
+    steps:
+      - name: Checkout FE Repo
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_fe'
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Instalar dependências
+        run: |
+          REACT_APP_AWS_REGION="${{ env.REACT_APP_AWS_REGION }}" \
+          REACT_APP_S3_BUCKET="${{ env.REACT_APP_S3_BUCKET }}" \
+          REACT_APP_API_ENDPOINT="${{ env.REACT_APP_API_ENDPOINT }}" \
+          REACT_APP_USER_POOL_ID="${{ env.REACT_APP_USER_POOL_ID }}" \
+          REACT_APP_USER_POOL_CLIENT_ID="${{ env.REACT_APP_USER_POOL_CLIENT_ID }}" \
+          REACT_APP_USE_MOCK_AUTH="${{ env.REACT_APP_USE_MOCK_AUTH }}" \
+          REACT_APP_USE_MOCK_VIDEO="${{ env.REACT_APP_USE_MOCK_VIDEO }}" \
+          npm install
+
+      - name: Build do projeto
+        run: |
+          REACT_APP_AWS_REGION="${{ env.REACT_APP_AWS_REGION }}" \
+          REACT_APP_S3_BUCKET="${{ env.REACT_APP_S3_BUCKET }}" \
+          REACT_APP_API_ENDPOINT="${{ env.REACT_APP_API_ENDPOINT }}" \
+          REACT_APP_USER_POOL_ID="${{ env.REACT_APP_USER_POOL_ID }}" \
+          REACT_APP_USER_POOL_CLIENT_ID="${{ env.REACT_APP_USER_POOL_CLIENT_ID }}" \
+          REACT_APP_USE_MOCK_AUTH="${{ env.REACT_APP_USE_MOCK_AUTH }}" \
+          REACT_APP_USE_MOCK_VIDEO="${{ env.REACT_APP_USE_MOCK_VIDEO }}" \
+          npm run deploy
+      
+
+      - name: Configurar AWS CLI
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: sa-east-1
+
+      - name: Deploy para o S3
+        run: npm run deploy
