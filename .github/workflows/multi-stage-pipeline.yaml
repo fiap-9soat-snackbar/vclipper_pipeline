@@ -971,7 +971,10 @@ jobs:
 
     steps:
       - name: Checkout FE Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
+        with:
+          repository: 'fiap-9soat-snackbar/vclipper_fe'
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
