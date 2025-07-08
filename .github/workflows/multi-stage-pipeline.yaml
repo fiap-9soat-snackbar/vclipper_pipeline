@@ -990,7 +990,8 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_DEFAULT_REGION}}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_DEFAULT_REGION }}
 
       - name: Criar arquivo .env para build
         run: |
@@ -1003,7 +1004,7 @@ jobs:
                 REACT_APP_USE_MOCK_AUTH=${{ env.REACT_APP_USE_MOCK_AUTH }}
                 REACT_APP_USE_MOCK_VIDEO=${{ env.REACT_APP_USE_MOCK_VIDEO }}
                 EOF
-                
+
       - name: Instalar dependências
         run: npm install
 
