@@ -60,5 +60,6 @@ jobs:
       - name: Instalar dependências
         run: npm install
 
-      - name: Build do projeto
-        run: npm run deploy
+      - name: Build do projeto + Deploy no S3
+        run: |
+          CI=false npm run deploy
