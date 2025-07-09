@@ -951,7 +951,7 @@ jobs:
                 --set IMAGE.REPOSITORY=171219910203199431032017/vclipping \
                 --set IMAGE.TAG=${{ env.IMAGE_TAG }} \
                 --set SECRET.AWS_REGION=${{ vars.AWS_DEFAULT_REGION}}  \
-                --set SECRET.AWS_ACCOUNT_ID=${{ vars.AWS_ACCOUNT_ID}}  \
+                --set SECRET.AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}  \
                 --set SECRET.AWS_S3_BUCKET=${{ needs.video-storage-setup.outputs.video-storage-bucket-name }}  \
                 --set SECRET.AWS_SQS_PROCESSING_QUEUE_URL=${{ needs.queue-setup.outputs.queue_url }} \
                 --set SECRET.AWS_SQS_RESULT_QUEUE_URL=${{ needs.queue-setup.outputs.vclipping_results_queue_url }} \
@@ -992,8 +992,8 @@ jobs:
       REACT_APP_USE_MOCK_VIDEO: "true"
       
 
-    needs: [build-and-push]
-    #needs: [unit-tests, code-analysis]
+    #needs: [build-and-push]
+    needs: [unit-tests, code-analysis]
 
     steps:
       - name: Checkout FE Repo
