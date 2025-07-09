@@ -910,8 +910,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-    #needs: [build-and-push]
-    needs: [unit-tests, code-analysis, database-mongodb-setup,video-storage-setup, queue-setup, sns-notification-setup  ]
+    needs: [build-and-push, database-mongodb-setup,video-storage-setup, queue-setup, sns-notification-setup  ]
     steps:
       - name: Checkout App Repo
         uses: actions/checkout@v3
