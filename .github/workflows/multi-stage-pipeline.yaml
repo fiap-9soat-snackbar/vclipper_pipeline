@@ -483,7 +483,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: [database-rds-setup, database-mongodb-setup, eks-setup, coginito-setup]
+    needs: [database-rds-setup, eks-setup]
 
     outputs:
       frontend-hosting-bucket-name: ${{ steps.frontend-hosting.outputs.bucket_name }}
@@ -532,7 +532,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: [database-rds-setup, database-mongodb-setup, eks-setup, coginito-setup]
+    needs: [database-rds-setup, eks-setup]
     outputs:
       video-storage-bucket-name: ${{ steps.video-storage.outputs.bucket_name }}
     env:
