@@ -333,8 +333,7 @@ jobs:
           raw_conn=$(terraform output -raw connection_string)
           host_only=${raw_conn#*://}
           echo "connection_string=$host_only" >> $GITHUB_OUTPUT          
-          terraform output -raw connection_string
-          echo "$host_only"        
+          echo "$connection_string"        
 
 
   lambda_setup:
@@ -424,10 +423,12 @@ jobs:
         working-directory: services/sqs
         id: queue
         run: |
-          queue_url=$(terraform output -raw queue_url)
-          vclip_url=$(terraform output -raw vclipping_results_queue_url)
-          echo "queue_url=$queue_url" >> $GITHUB_OUTPUT
-          echo "vclipping_results_queue_url=$vclip_url" >> $GITHUB_OUTPUT
+          get_queue_url=$(terraform output -raw queue_url)
+          get_vclip_url=$(terraform output -raw vclipping_results_queue_url)
+          echo "queue_url=$get_queue_url" >> $GITHUB_OUTPUT
+          echo "vclipping_results_queue_url=$get_vclip_url" >> $GITHUB_OUTPUT
+          echo "$queue_url"
+          echo "$vclipping_results_queue_url"
       
 
   sns-notification-setup:
@@ -571,8 +572,9 @@ jobs:
         working-directory: services/video-storage
         id: video-storage
         run: |
-          bucket_name=$(terraform output -raw bucket_name)
-          echo "bucket_name=$bucket_name" >> $GITHUB_OUTPUT
+          get_bucket_name=$(terraform output -raw bucket_name)
+          echo "bucket_name=$get_bucket_name" >> $GITHUB_OUTPUT
+          echo "$bucket_name"
 
 
   coginito-setup:
