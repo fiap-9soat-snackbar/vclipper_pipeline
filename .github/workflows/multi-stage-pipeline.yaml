@@ -456,6 +456,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
             terraform_version: 1.3.6
+            terraform_wrapper: false
 
       - name: Init SNS Notification Setup
         working-directory: services/sns-notifications
