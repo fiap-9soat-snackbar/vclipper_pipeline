@@ -987,7 +987,7 @@ jobs:
       REACT_APP_USER_POOL_ID: ${{ needs.coginito-setup.outputs.client_id }}
       REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.coginito-setup.outputs.user_pool_id }}
       REACT_APP_USE_MOCK_AUTH: "false"
-      REACT_APP_USE_MOCK_VIDEO: "true"
+      REACT_APP_USE_MOCK_VIDEO: "false"
     needs: [api_gateway_setup,frontend-hosting-setup,coginito-setup]
 
     steps:
