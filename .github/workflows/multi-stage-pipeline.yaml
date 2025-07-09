@@ -331,10 +331,9 @@ jobs:
         id: mongo
         run: |
           raw_conn=$(terraform output -raw connection_string)
-          host_only=${raw_conn#*://}
-          echo "connection_string=$host_only" 
-          echo "connection_string<<EOF" >> $GITHUB_OUTPUT          
-          echo "$connection_string"        
+          connection_string=${raw_conn#*://}
+          echo "connection_string=$connection_string" >> $GITHUB_OUTPUT       
+          echo "$connection_string"  
 
 
   lambda_setup:
