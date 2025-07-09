@@ -708,6 +708,7 @@ jobs:
         run: |
           get_endpoint=$(terraform output -raw api_gateway_endpoint)
           echo "api_gateway_endpoint=$get_endpoint" >> $GITHUB_OUTPUT
+          echo "$api_gateway_endpoint"
   
         
   monitoring-setup:
