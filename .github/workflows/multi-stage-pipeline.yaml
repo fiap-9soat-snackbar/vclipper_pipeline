@@ -828,16 +828,16 @@ jobs:
         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-maven-
 
-   # - name: Build, Test and Analyze with SonarCloud
-   #   run: |
-   #     mvn -f pom.xml clean verify \
-   #       org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.1.2184:sonar \
-   #       -Dsonar.projectKey=fiap-9soat-snackbar_${{ matrix.app_name }} \
-   #       -Dsonar.organization=fiap-9soat-snackbar \
-   #       -Dsonar.projectName=${{ matrix.app_name }} \
-   #       -Dsonar.host.url=https://sonarcloud.io \
-   #       -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-   #       -Dcoverage.minimum=0.80 \
+    - name: Build, Test and Analyze with SonarCloud
+      run: |
+        mvn -f pom.xml clean verify \
+          org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.1.2184:sonar \
+          -Dsonar.projectKey=fiap-9soat-snackbar_${{ matrix.app_name }} \
+          -Dsonar.organization=fiap-9soat-snackbar \
+          -Dsonar.projectName=${{ matrix.app_name }} \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+          -Dcoverage.minimum=0.80 \
 
   build-and-push:
     runs-on: ubuntu-latest
