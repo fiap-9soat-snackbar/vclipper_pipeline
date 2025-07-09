@@ -340,7 +340,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: securitygroup-setup
+    needs: deploy-be
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -383,7 +383,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: [securitygroup-setup, video-storage-setup]
+    needs: [video-storage-setup, frontend-hosting-setup]
     outputs:
       queue_url: ${{ steps.queue.outputs.queue_url }}
       vclipping_results_queue_url: ${{ steps.queue.outputs.vclipping_results_queue_url }}
@@ -483,7 +483,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: securitygroup-setup
+    needs: [database-rds-setup, database-mongodb-setup, eks-setup, coginito-setup]
 
     outputs:
       frontend-hosting-bucket-name: ${{ steps.frontend-hosting.outputs.bucket_name }}
@@ -532,7 +532,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: frontend-hosting-setup
+    needs: [database-rds-setup, database-mongodb-setup, eks-setup, coginito-setup]
     outputs:
       video-storage-bucket-name: ${{ steps.video-storage.outputs.bucket_name }}
     env:
@@ -642,7 +642,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: [lambda_setup,frontend-hosting-setup]
+    needs: [lambda_setup]
     #needs: [deploy-be,lambda_setup]
     outputs:
       api-gateway-endpoint: ${{ steps.get-url.outputs.api-gateway-endpoint}}
@@ -714,7 +714,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: [sns-notification-setup,queue-setup,video-storage-setup,frontend-hosting-setup,api_gateway_setup,coginito-setup,eks-setup,database-rds-setup,database-mongodb-setup]
+    needs: [deploy-fe]
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -750,7 +750,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: [monitoring-setup]
+    needs: [sns-notification-setup]
 
     strategy:
       matrix:
@@ -792,7 +792,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    needs: [monitoring-setup]
+    needs: [sns-notification-setup]
 
     strategy:
       matrix:
@@ -840,7 +840,6 @@ jobs:
    #       -Dcoverage.minimum=0.80 \
 
   build-and-push:
-    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
@@ -892,12 +891,12 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         
-    - name: Build and push Vclipper Docker image
-      run: |
-        set -x
-        docker buildx build --platform linux/amd64,linux/arm64 \
-           -t ${{ secrets.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ env.IMAGE_TAG }} \
-           --push .
+   # - name: Build and push Vclipper Docker image
+   #   run: |
+   #     set -x
+   #     docker buildx build --platform linux/amd64,linux/arm64 \
+   #        -t ${{ secrets.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ env.IMAGE_TAG }} \
+   #        --push .
         
     - name: Docker logout
       run: docker logout
@@ -990,10 +989,7 @@ jobs:
       REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.coginito-setup.outputs.user_pool_id }}
       REACT_APP_USE_MOCK_AUTH: "false"
       REACT_APP_USE_MOCK_VIDEO: "true"
-      
-
-    #needs: [build-and-push]
-    needs: [unit-tests, code-analysis,frontend-hosting-setup,api_gateway_setup,coginito-setup]
+    needs: [api_gateway_setup,frontend-hosting-setup,coginito-setup]
 
     steps:
       - name: Checkout FE Repo
@@ -1037,11 +1033,10 @@ jobs:
 
 
   app_ready:
-    if: false
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
-    #needs: api_pipeline
+    needs: monitoring-setup
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1052,10 +1047,8 @@ jobs:
       - name: Endereço das Apps
         run: |
           declare -A services=(
-            [DNS_vclipper_fe]="vclipper_fe"
             [DNS_vclipper_processing]="vclipper_processing"
-            [DNS_vclipper_user]="vclipper_user"
-            [DNS_vclipping]="vclipper_vclipping"
+            [DNS_vclipping]="vclipping"
           )
       
           for elb in $(aws elb describe-load-balancers --query 'LoadBalancerDescriptions[].LoadBalancerName' --output text); do
