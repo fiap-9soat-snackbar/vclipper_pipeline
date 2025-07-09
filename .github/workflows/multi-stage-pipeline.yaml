@@ -333,6 +333,8 @@ jobs:
           raw_conn=$(terraform output -raw connection_string)
           host_only=${raw_conn#*://}
           echo "connection_string=$host_only" >> $GITHUB_OUTPUT          
+          terraform output -raw connection_string
+          echo "$host_only"        
 
 
   lambda_setup:
@@ -385,6 +387,7 @@ jobs:
     needs: [securitygroup-setup, video-storage-setup]
     outputs:
       queue_url: ${{ steps.queue.outputs.queue_url }}
+      vclipping_results_queue_url: ${{ steps.queue.outputs.vclipping_results_queue_url }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -417,12 +420,14 @@ jobs:
         if: ${{ success() }}
         run: terraform apply -var="bucket=${{ vars.BUCKET_S3 }}" -auto-approve
 
-      - name: Get Queue URL
+      - name: Get Queue URLs
         working-directory: services/sqs
         id: queue
         run: |
           queue_url=$(terraform output -raw queue_url)
+          vclip_url=$(terraform output -raw vclipping_results_queue_url)
           echo "queue_url=$queue_url" >> $GITHUB_OUTPUT
+          echo "vclipping_results_queue_url=$vclip_url" >> $GITHUB_OUTPUT
       
 
   sns-notification-setup:
@@ -481,7 +486,7 @@ jobs:
     needs: securitygroup-setup
 
     outputs:
-      frontend-hosting--bucket-name: ${{ steps.frontend-hosting.outputs.bucket_name }}
+      frontend-hosting-bucket-name: ${{ steps.frontend-hosting.outputs.bucket_name }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -946,9 +951,9 @@ jobs:
                 --set IMAGE.TAG=${{ env.IMAGE_TAG }} \
                 --set SECRET.AWS_REGION=${{ vars.AWS_DEFAULT_REGION}}  \
                 --set SECRET.AWS_ACCOUNT_ID=${{ vars.AWS_ACCOUNT_ID}}  \
-                --set SECRET.AWS_S3_BUCKET=${{ needs.video-storage-setup.outputs.bucket_name }}  \
-                --set SECRET.AWS_SQS_PROCESSING_QUEUE_URL=${{ needs.queue-setup.outputs.queue_processing_url }}  \
-                --set SECRET.AWS_SQS_RESULT_QUEUE_URL=${{ needs.queue-setup.outputs.queue_result_url }}  \
+                --set SECRET.AWS_S3_BUCKET=${{ needs.video-storage-setup.outputs.video-storage-bucket-name }}  \
+                --set SECRET.AWS_SQS_PROCESSING_QUEUE_URL=${{ needs.queue-setup.outputs.queue_url }} \
+                --set SECRET.AWS_SQS_RESULT_QUEUE_URL=${{ needs.queue-setup.outputs.vclipping_results_queue_url }} \
 
       - name: Install vclipper processing
         run: |
@@ -960,7 +965,7 @@ jobs:
                 --set SECRET.MONGODB_USER=${{ secrets.MONGODB_USER }} \
                 --set SECRET.MONGODB_PASSWORD=${{ secrets.MONGODB_PASSWORD }} \
                 --set SECRET.DB_HOST=${{ needs.database-mongodb-setup.outputs.mongo-conn }} \
-                --set SECRET.AWS_S3_BUCKET=${{ needs.video-storage-setup.outputs.bucket_name }} \
+                --set SECRET.AWS_S3_BUCKET=${{ needs.video-storage-setup.outputs.video-storage-bucket-name }} \
                 --set SECRET.AWS_SQS_PROCESSING_QUEUE_URL=${{ needs.queue-setup.outputs.queue_url }}  \
                 --set SECRET.AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}  \
                 --set SECRET.AWS_REGION=${{ vars.AWS_DEFAULT_REGION}}  \
@@ -978,7 +983,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
       REACT_APP_AWS_REGION: ${{ vars.AWS_DEFAULT_REGION}}
-      REACT_APP_S3_BUCKET: ${{ needs.frontend-hosting-setup.outputs.bucket_name }}
+      REACT_APP_S3_BUCKET: ${{ needs.frontend-hosting-setup.outputs.frontend-hosting-bucket-name}}
       REACT_APP_API_ENDPOINT: ${{ needs.api_gateway_setup.outputs.api-gateway-endpoint }}
       REACT_APP_USER_POOL_ID: ${{ needs.coginito-setup.outputs.client_id }}
       REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.coginito-setup.outputs.user_pool_id }}
