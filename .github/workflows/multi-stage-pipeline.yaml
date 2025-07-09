@@ -475,9 +475,7 @@ jobs:
         working-directory: services/sns-notifications
         run: |
           arn=$(terraform output -raw success_topic_arn)
-          echo "success_topic_arn<<EOF" >> $GITHUB_OUTPUT
-          echo "$arn" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "$arn=$success_topic_arn" >> $GITHUB_OUTPUT
 
 
   frontend-hosting-setup:
