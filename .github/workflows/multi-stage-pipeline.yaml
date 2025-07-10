@@ -738,14 +738,8 @@ jobs:
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
     needs: [build-and-push, database-mongodb-setup,video-storage-setup, queue-setup, sns-notification-setup  ]
-    steps:
-      - name: Checkout App Repo
-        uses: actions/checkout@v3
-        with:
-          repository:  ${{ matrix.repository_full_name }}
-          token: ${{ secrets.GH_TOKEN}}
-          ref: ${{ github.event.client_payload.branch == 'main' || github.event_name == 'workflow_dispatch' && 'main' || 'homolog' }}
 
+    steps:
       - name: Install Helm
         run: |
               curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
@@ -799,6 +793,19 @@ jobs:
                 --set SECRET.AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}  \
                 --set SECRET.AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}  \
                 --set SECRET.AWS_SNS_NOTIFICATION_TOPIC_ARN=${{ needs.sns-notification-setup.outputs.success_topic_arn }} \
+
+      - name: Add Helm Prometheus/Grafana Repo
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
+        
+      - name: Deploy Monitoring Stack
+        run: |
+          helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+            --namespace monitoring --create-namespace
+
+
+
   deploy-fe:
     runs-on: ubuntu-latest
     environment:
