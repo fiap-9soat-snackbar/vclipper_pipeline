@@ -732,6 +732,9 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
+    outputs:
+      vclipper_processing_dns: ${{ steps.get-lb-endpoint.outputs.lb_hostname }}
+
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -804,6 +807,12 @@ jobs:
           helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
             --namespace monitoring --create-namespace
 
+      - name: Obter DNS do Load Balancer do vclipper-processing
+        id: get-lb-endpoint
+        run: |
+          lb_hostname=$(kubectl get svc vclipper-processing -n ${{ env.APP_NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "lb_hostname=$lb_hostname"
+          echo "lb_hostname=$lb_hostname" >> $GITHUB_OUTPUT
 
 
   deploy-fe:
@@ -817,12 +826,12 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
       REACT_APP_AWS_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       REACT_APP_S3_BUCKET: ${{ needs.frontend-hosting-setup.outputs.frontend-hosting-bucket-name}}
-      REACT_APP_API_ENDPOINT: ${{ needs.api_gateway_setup.outputs.api-gateway-endpoint }}
+      REACT_APP_API_ENDPOINT: http://${{ needs.deploy-be.outputs.vclipper_processing_dns }}
       REACT_APP_USER_POOL_ID: ${{ needs.coginito-setup.outputs.client_id }}
       REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.coginito-setup.outputs.user_pool_id }}
       REACT_APP_USE_MOCK_AUTH: "false"
       REACT_APP_USE_MOCK_VIDEO: "false"
-    needs: [frontend-hosting-setup,coginito-setup]
+    needs: [deploy-be,frontend-hosting-setup,coginito-setup]
 
     steps:
       - name: Checkout FE Repo
