@@ -810,7 +810,7 @@ jobs:
       - name: Obter DNS do Load Balancer do vclipper-processing
         id: get-lb-endpoint
         run: |
-          lb_hostname=$(kubectl get svc vclipper-processing -n ${{ env.APP_NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          lb_hostname=$(kubectl get svc vclipper-processing-lb -n ${{ env.APP_NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
           echo "lb_hostname=$lb_hostname"
           echo "lb_hostname=$lb_hostname" >> $GITHUB_OUTPUT
 
@@ -873,9 +873,6 @@ jobs:
 
       - name: Build do projeto + Deploy no S3
         run: |
-              set -a
-              source .env
-              set +a
               bash prod-deploy.sh
           
 
