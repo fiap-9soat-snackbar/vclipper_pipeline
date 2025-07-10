@@ -645,7 +645,7 @@ jobs:
     needs: [lambda_setup]
     #needs: [deploy-be,lambda_setup]
     outputs:
-      api-gateway-endpoint: ${{ steps.get-url.outputs.api-gateway-endpoint}}
+      api-gateway-endpoint: ${{ steps.get-url.outputs.api_gateway_endpoint}}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -892,12 +892,12 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         
-    - name: Build and push Vclipper Docker image
-      run: |
-        set -x
-        docker buildx build --platform linux/amd64,linux/arm64 \
-           -t ${{ secrets.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ env.IMAGE_TAG }} \
-           --push .
+    #- name: Build and push Vclipper Docker image
+    #  run: |
+    #    set -x
+    #    docker buildx build --platform linux/amd64,linux/arm64 \
+    #       -t ${{ secrets.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ env.IMAGE_TAG }} \
+    #       --push .
         
     - name: Docker logout
       run: docker logout
