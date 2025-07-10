@@ -57,6 +57,8 @@ jobs:
               export TIMEOUT="${{ env.TIMEOUT }}"
           
               envsubst < .env.template > .env
+
+              cat .env
         
       - name: Instalar dependências
         run: npm install
