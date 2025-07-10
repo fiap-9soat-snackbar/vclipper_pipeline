@@ -828,8 +828,8 @@ jobs:
       REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.coginito-setup.outputs.client_id }} 
       WEBSITE_URL: ${{ vars.WEBSITE_URL}}
       HTTPS_URL: ${{ vars.HTTPS_URL}}
-      REACT_APP_USE_MOCK_AUTH: "false"
-      REACT_APP_USE_MOCK_VIDEO: "false"
+      REACT_APP_USE_MOCK_AUTH: ${{ vars.MOCK}}
+      REACT_APP_USE_MOCK_VIDEO: ${{ vars.MOCK}}
       TIMEOUT: "30"
     needs: [deploy-be,frontend-hosting-setup,coginito-setup]
 
