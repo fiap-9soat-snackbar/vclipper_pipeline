@@ -1001,7 +1001,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Configurar AWS CLI
         uses: aws-actions/configure-aws-credentials@v3
@@ -1021,6 +1021,9 @@ jobs:
                 REACT_APP_USER_POOL_CLIENT_ID=${{ env.REACT_APP_USER_POOL_CLIENT_ID }}
                 REACT_APP_USE_MOCK_AUTH=${{ env.REACT_APP_USE_MOCK_AUTH }}
                 REACT_APP_USE_MOCK_VIDEO=${{ env.REACT_APP_USE_MOCK_VIDEO }}
+                AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+                AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}
                 EOF
 
       - name: Instalar dependências
