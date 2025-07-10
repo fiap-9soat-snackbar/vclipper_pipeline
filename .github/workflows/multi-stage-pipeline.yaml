@@ -820,17 +820,17 @@ jobs:
     environment:
       name: ${{ github.ref_name }}
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
       REACT_APP_AWS_REGION: ${{ vars.AWS_DEFAULT_REGION}}
       REACT_APP_S3_BUCKET: ${{ needs.frontend-hosting-setup.outputs.frontend-hosting-bucket-name}}
       REACT_APP_API_ENDPOINT: http://${{ needs.deploy-be.outputs.vclipper_processing_dns }}
-      REACT_APP_USER_POOL_ID: ${{ needs.coginito-setup.outputs.client_id }}
-      REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.coginito-setup.outputs.user_pool_id }}
+      REACT_APP_USER_POOL_ID: ${{ needs.coginito-setup.outputs.user_pool_id }}
+      REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.coginito-setup.outputs.client_id }} 
+      WEBSITE_URL: ${{ vars.WEBSITE_URL}}
+      HTTPS_URL: ${{ vars.HTTPS_URL}}
       REACT_APP_USE_MOCK_AUTH: "false"
       REACT_APP_USE_MOCK_VIDEO: "false"
+      TIMEOUT: "30"
     needs: [deploy-be,frontend-hosting-setup,coginito-setup]
 
     steps:
@@ -863,12 +863,9 @@ jobs:
                 REACT_APP_USER_POOL_CLIENT_ID=${{ env.REACT_APP_USER_POOL_CLIENT_ID }}
                 REACT_APP_USE_MOCK_AUTH=${{ env.REACT_APP_USE_MOCK_AUTH }}
                 REACT_APP_USE_MOCK_VIDEO=${{ env.REACT_APP_USE_MOCK_VIDEO }}
-                AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-                AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}
-                WEBSITE_URL="http://vclipper-frontend-prod.s3-website-us-east-1.amazonaws.com/"
-                HTTPS_URL="https://vclipper-frontend-prod.s3-website-us-east-1.amazonaws.com/"
-                TIMEOUT=30
+                WEBSITE_URL=${{ env.WEBSITE_URL }}
+                HTTPS_URL=${{ env.HTTPS_URL }}
+                TIMEOUT=${{ env.TIMEOUT }}
                 EOF
 
       - name: Instalar dependências
@@ -876,7 +873,10 @@ jobs:
 
       - name: Build do projeto + Deploy no S3
         run: |
-           bash prod-deploy.sh
+              set -a
+              source .env
+              set +a
+              bash prod-deploy.sh
           
 
 
@@ -886,36 +886,12 @@ jobs:
       name: ${{ github.ref_name }}
     needs: monitoring-setup
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION}}
-      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      WEBSITE_URL: ${{ vars.WEBSITE_URL }}
 
     steps:
-      - name: Endereço das Apps
+      - name: Frontend URL
         run: |
-          declare -A services=(
-            [DNS_vclipper_processing]="vclipper_processing"
-            [DNS_vclipping]="vclipping"
-          )
-      
-          for elb in $(aws elb describe-load-balancers --query 'LoadBalancerDescriptions[].LoadBalancerName' --output text); do
-            tags_json=$(aws elb describe-tags --load-balancer-names "$elb" --output json)
-      
-            for env_var in "${!services[@]}"; do
-              service_name="${services[$env_var]}"
-      
-              tag_value=$(echo "$tags_json" | jq -r \
-                ".TagDescriptions[0].Tags[] | select(.Key == \"service\") | .Value")
-      
-              if [ "$tag_value" == "$service_name" ]; then
-                dns_name=$(aws elb describe-load-balancers --load-balancer-names "$elb" \
-                  --query 'LoadBalancerDescriptions[0].DNSName' --output text)
-      
-                echo "Encontrado ELB para $service_name:"
-                echo "  Nome: $elb"
-                echo "  DNS : $dns_name"
-              fi
-            done
-          done
+          echo "✅ A aplicação está disponível em:"
+          echo "${WEBSITE_URL}"
+
 
