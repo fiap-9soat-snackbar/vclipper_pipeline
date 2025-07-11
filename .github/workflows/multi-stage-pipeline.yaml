@@ -586,10 +586,6 @@ jobs:
             repository_full_name: fiap-9soat-snackbar/vclipping
           - app_name: vclipper_processing
             repository_full_name: fiap-9soat-snackbar/vclipper_processing
-         # - app_name: vclipper_user
-         #   repository_full_name: fiap-9soat-snackbar/vclipper_user
-         # - app_name: vclipper_fe
-         #   repository_full_name: fiap-9soat-snackbar/vclipper_fe
 
     steps:
       - name: Checkout App Repo
@@ -628,10 +624,6 @@ jobs:
             repository_full_name: fiap-9soat-snackbar/vclipping
           - app_name: vclipper_processing
             repository_full_name: fiap-9soat-snackbar/vclipper_processing
-         # - app_name: vclipper_user
-         #   repository_full_name: fiap-9soat-snackbar/vclipper_user
-         # - app_name: vclipper_fe
-         #   repository_full_name: fiap-9soat-snackbar/vclipper_fe
 
 
     steps:
@@ -655,16 +647,16 @@ jobs:
         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-maven-
 
-   # - name: Build, Test and Analyze with SonarCloud
-   #   run: |
-   #     mvn -f pom.xml clean verify \
-   #       org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.1.2184:sonar \
-   #       -Dsonar.projectKey=fiap-9soat-snackbar_${{ matrix.app_name }} \
-   #       -Dsonar.organization=fiap-9soat-snackbar \
-   #       -Dsonar.projectName=${{ matrix.app_name }} \
-   #       -Dsonar.host.url=https://sonarcloud.io \
-   #       -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-   #       -Dcoverage.minimum=0.80 \
+    - name: Build, Test and Analyze with SonarCloud
+      run: |
+        mvn -f pom.xml clean verify \
+          org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.1.2184:sonar \
+          -Dsonar.projectKey=fiap-9soat-snackbar_${{ matrix.app_name }} \
+          -Dsonar.organization=fiap-9soat-snackbar \
+          -Dsonar.projectName=${{ matrix.app_name }} \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+          -Dcoverage.minimum=0.80 \
 
   build-and-push:
     runs-on: ubuntu-latest
@@ -686,10 +678,6 @@ jobs:
             repository_full_name: fiap-9soat-snackbar/vclipping
           - app_name: vclipper_processing
             repository_full_name: fiap-9soat-snackbar/vclipper_processing
-         # - app_name: vclipper_user
-         #   repository_full_name: fiap-9soat-snackbar/vclipper_user
-         # - app_name: vclipper_fe
-         #   repository_full_name: fiap-9soat-snackbar/vclipper_fe
 
     steps:
     - name: Checkout App Repo
@@ -718,12 +706,12 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         
-    #- name: Build and push Vclipper Docker image
-    #  run: |
-    #    set -x
-    #    docker buildx build --platform linux/amd64,linux/arm64 \
-    #       -t ${{ secrets.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ env.IMAGE_TAG }} \
-    #       --push .
+    - name: Build and push Vclipper Docker image
+      run: |
+        set -x
+        docker buildx build --platform linux/amd64,linux/arm64 \
+           -t ${{ secrets.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ env.IMAGE_TAG }} \
+           --push .
         
     - name: Docker logout
       run: docker logout
